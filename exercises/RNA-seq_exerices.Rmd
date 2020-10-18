@@ -3,9 +3,84 @@ title: "Practive with RNA-seq"
 output: html_notebook
 ---
 
+```{r setup, include  = F}
+library(knitr)
+library(tidyverse)
+opts_knit$set(root.dir = '/data/swamyvs/BIOF045-NGS-Data-Analysis-Day-3/') #***CHANGE THIS TO THE RNA-seq DIRECTORY****
+```
+
+- we're going to run most of your bash commands through an R notebook; its a good way to make sure you keep track of what commands you're using,  and you can makes notes better than a bash script 
+```{bash}
+echo $PWD
+```
 
 
-```{r}
+## Get annotation 
+- First, lets get some annotation.
+- The data we'll be working with is from this study: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4057123/
+- this is data is from human, so lets download some annotation for data. 
+- transcript fasta: ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_35/gencode.v35.transcripts.fa.gz
+- genome: ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_35/GRCh38.primary_assembly.genome.fa.gz
+- gtf: ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_35/gencode.v35.annotation.gtf.gz
+- There's two general best practices for storing annotations - keep a single folder on your computer that has all your annotation, or keep a separate folder for each project. 
+- I generally keep a separte folder for each project, which requires more space, but makes your code more portable, as annotation is contained within your project
+```{bash }
+mkdir -p references
+wget -O references/transcripts.fa.gz ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_35/gencode.v35.transcripts.fa.gz
+wget -O references/human_genome_grch38.fa.gz ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_35/GRCh38.primary_assembly.genome.fa.gz
+wget -O references/transcript_annotation.gtf.gz ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_35/gencode.v35.annotation.gtf.gz
 
 ```
+
+## Building an index
+- I'm not goint to cover how to download salmon, because the developers have good documentation on how to do so, and we have it pre-installed on this server.
+- First, we make the decoy files need for building the index
+```{bash}
+zcat references/human_genome_grch38.fa.gz | grep "^>"  -| cut -d " " -f 1 | sed  -e 's/>//g'  > references/decoys.txt # get names of chromosomes 
+zcat references/transcripts.fa.gz references/human_genome_grch38.fa.gz > references/transcript_genome_merged.fa # merge two fastas together
+
+```
+
+- This would be the command to generat the index. DO NOT run it, as it will take about an hour to run 
+- For reference, on a 12 core machine this took about 1.5 hours to run, and required about 20GB of RAM.
+```
+salmon index -t references/transcript_genome_merged.fa -d references/decoys.txt -p 12 -i references/salmon_human_index --gencode
+```
+
+```{r}
+BiocManager::install('airway', ask = F)
+'/data/swamyvs/BIOF045-NGS-Data-Analysis-Day-3/fastqs/'
+```
+
+- Now we can quantify our samples. We'll need to run a separate command for each sample, so using a loop would simplify this process.\
+- I've already run salmon on each sample as even though salmon is fast(~10 min per sample)
+- As an example here is how you would use the command
+
+```{bash}
+mkdir -p quant/
+fastq_path='/data/swamyvs/BIOF045-NGS-Data-Analysis-Day-3/fastqs/'
+salmon quant  \
+    --threads 8 \
+    --libType A \
+    -1 ${fastq_path}/SRR1039513_1.fastq \
+    -2 ${fastq_path}SRR1039513_2.fastq \
+    --index references/salmon_human_index \
+    --seqBias \
+    --gcBias \
+    --posBias \
+    --output quant/${sample}/
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
 

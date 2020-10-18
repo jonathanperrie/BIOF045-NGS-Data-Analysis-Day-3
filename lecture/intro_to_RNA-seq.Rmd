@@ -30,6 +30,7 @@ slides > slide {
 library(knitr)
 library(tidyverse)
 opts_chunk$set(echo = F)
+opts_knit$set(root.dir = '/data/swamyvs/BIOF045-NGS-Data-Analysis-Day-3/')
 ```
 
 
@@ -204,6 +205,22 @@ read.table(text = txt, header = T ) %>% kable()
 ```
 
 
+## Analysis of RNA-seq data in R
+- R is the most common language for (bulk)RNA-seq analysis by a wide margin
+- Most of the packages for RNA-seq analysis are hosted on `Bioconductor`, which is a repository similar to CRAN, but more biologucally focused. 
+- we can get access to `Bioconductor` by installing the `BiocManager` library
+```{r}
+install.packages('BiocManager')
+```
+- we can then use `BiocManager::install` to download packages from `Bioconductor`
+
+## Analysis of RNA-seq data in R
+- there are a *lot* of tools for analyzing RNA-seq data. 
+- We'll be covering `DESeq2` for this course, because it is by far the simplest to use
+- tools like `edgeR` and `limma` are a little more powerful, but are harder to use.
+- download `DESeq2` with `BiocManager::install('DESeq2')`
+
+
 ## Normalization of RNA-seq data
 - Normalization of RNA-seq data is a *critical* step for its analysis
 - Aligned RNA-seq data is presented as counts, where each read is a single count 
@@ -226,7 +243,7 @@ read.table(text = txt, header = T ) %>% kable()
 ## Transcripts per Million reads (TPM)
 - Combines both normalization methods, account ing for both transcript length and library size 
 - Formally Let TPM is $TPM_t= \frac{c_t/l_t}S * 1000000$ where
-  - $S= \sum_{t \in T} c_t/l_t $
+  - $S=\sum_{t\ \in\ T} c_t/l_t $
   - $c_t$ = total number of counts(reads) for a  transcript *t*, 
   - $l_t$ = length of *t* in kilobases
   - $T$ = all transcripts quantified in the entire sample
@@ -235,6 +252,15 @@ read.table(text = txt, header = T ) %>% kable()
 ## RNA-seq analyses methods use more robust methods for normalization
 - RNA-seq analysis tools like `edgeR` and `DESeq2` use a more sophisticated approach for normaliztion, but generally follow the priniples mentioned earlier
 - Because of this, **ALWAYS** pass *raw* counts to these tools, and allow them to normalize for you
+
+## Metadata
+- For RNA-seq tool, you will need metadata aobut your samples; At the very least the metadata should inlucde the sample names and experimental conditions.
+```{r}
+sample_table <- read_csv('src/sample_table.csv') 
+kable(sample_table)
+```
+- it can also be useful to add paths to each file in the metadata file, so you can remember where they are on your computer
+
 
 ## Reading RNA-seq data into R
 - the `tximport` package provides a uniform interface to read RNA-seq data into R. 
@@ -267,6 +293,81 @@ tx2gene <- gtf %>%
   select(transcript_id, gene_id) %>% 
   distinct()
 ```
+
+## Gene level vs Transcript level expression
+- It's much easier to work with gene level data than transcript level data
+- We'll cover working with gene level data first, and if we have time discuss working with transcript level data 
+
+## Loading data into `DESeq2`
+- DESeq2 allows you to load data directly using the output of tximport
+```{r, eval = F}
+library(DESeq2)
+DESeqDataSetFromTximport(  
+  txi = # the  output from 
+  colData = # a data fram containing metadata about each sample 
+  design = # the experimental design of the study. Must be a column in metadata
+  )
+```
+
+## Study Designs
+- A study design is based on the experimental conditions you are testing. 
+- In R, this is a vector of conditions that corresponds to experimental condition of each sample. 
+```{r echo = T}
+sample_table$treatment
+```
+- we refer to designs using the `~` operator, 
+
+```{r echo=T}
+des_obj <- DESeqDataSetFromTximport(  
+  txi = txi,
+  colData =sample_table ,
+  design = ~treatment
+  )
+```
+
+
+## Exploring data
+- Once we load data into R, the next step is to explore the data.
+- This is generally a QC step, to make sure that the data looks clean.
+
+## A quick primer on dimensions 
+- Generally, when people refer the "dimension" of data, they refer to the number of measurement, or variables,  within the data 
+- We'll be using qPCR as an example. Lets say I measure the expression of 1 gene across 2 conditions, 
+```{r include = F}
+exp <- tibble(Condition = c(rep('wt', 3), rep('ko', 3)),
+       Replicate = c(rep(1:3, 2)), 
+       Gene_A = rnorm(6, 1))
+exp2 <-  tibble(Condition = c(rep('wt', 3), rep('ko', 3)),
+       Replicate = c(rep(1:3, 2)), 
+       Gene_A = rnorm(6, 1), 
+       Gene_B = rnorm(6, 1))
+```
+```{r}
+exp
+```
+- this data has 6 observations, with 1 measurement, Gene_A, and so has one dimension
+
+## A quick primer on dimensions 
+```{r}
+exp2
+```
+- Same number of observations, but with 2 measurement, and so this data has two dimension
+- And so in a typical RNA-seq experiment where you are measuring 20K genes, you would have 20K dimensions
+
+## Exploring data with Principal Component Analysis
+- Principal Component Analysis(PCA) is a method for reducing the dimensions from the data
+- PCA computes a reduced dimensional space that maximally preserves the variation present in the original data. 
+- We can use this reduced dimensional space to speed up computations, or for visualizations 
+
+## PCA in DESeq2
+- generating PCA plots is built into DESeq2
+```{r}
+
+```
+
+
+
+
 
 
 
