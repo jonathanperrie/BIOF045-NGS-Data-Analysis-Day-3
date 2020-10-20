@@ -29,7 +29,7 @@ slides > slide {
 ```{r setup, include = F}
 library(knitr)
 library(tidyverse)
-opts_chunk$set(echo = F)
+#opts_chunk$set(echo = F, fig.height = 5, fig.width = 5)
 opts_knit$set(root.dir = '/data/swamyvs/BIOF045-NGS-Data-Analysis-Day-3/')
 ```
 
@@ -309,25 +309,105 @@ DESeqDataSetFromTximport(
   )
 ```
 
+```{r include = F}
+library("tximport")
+library("readr")
+library("tximportData")
+library("DESeq2")
+dir <- system.file("extdata", package="tximportData")
+samples <- read.table(file.path(dir,"samples.txt"), header=TRUE)
+samples$condition <- factor(rep(c("A","B"),each=3))
+rownames(samples) <- samples$run
+samples[,c("pop","center","run","condition")]
+files <- file.path(dir,"salmon", samples$run, "quant.sf.gz")
+names(files) <- samples$run
+tx2gene <- read_csv(file.path(dir, "tx2gene.gencode.v27.csv"))
+txi <- tximport(files, type="salmon", tx2gene=tx2gene)
+```
+
+
 ## Study Designs
 - A study design is based on the experimental conditions you are testing. 
 - In R, this is a vector of conditions that corresponds to experimental condition of each sample. 
 ```{r echo = T}
-sample_table$treatment
+samples$condition
 ```
-- we refer to designs using the `~` operator, 
+- the design vector must be a column in the `colData` dataframe, and we refer to designs using the `~` operator, 
 
 ```{r echo=T}
-des_obj <- DESeqDataSetFromTximport(  
-  txi = txi,
-  colData =sample_table ,
-  design = ~treatment
-  )
+ddsTxi <- DESeqDataSetFromTximport(txi,
+                                   colData = samples,
+                                   design = ~ condition)
 ```
+
+## Working with `DESeqDataSet` objects 
+- `DESeq` uses a custom type of R object called a `DESeqDataSet`
+```{r}
+class(ddsTxi)
+```
+- this a fancy container to store multiple levels of data using the `$` operator on a `DESeqDataSet` object allows you to access columns in the dataframe you passed to colData
+```{r}
+ddsTxi$
+```
+
+## Working with `DESeqDataSet` objects 
+- raw counts can be accessed with the `assay` function
+```{r}
+head(assay(ddsTxi))
+```
+
+## Analysis with `DESeq2`
+- The general workflow of an analysis in RNA-seq experiment is the following
+  - prefilter data
+  - normalize for library size
+  - account for technical variation
+  - transforms count data
+  - explore data
+  - test for differential expression
+
+## prefiltering data
+- this step removes genes that have few counts. This is a always a good step, as it imporives the statistical power of your tests, 
+```{r}
+dim(ddsTxi)
+```
+
+```{r}
+minimally_expressed <- rowSums(assay(ddsTxi)) >=25
+ddsTxi_filtered <- ddsTxi[minimally_expressed,]
+dim(ddsTxi_filtered)
+```
+
+## library size calculations
+```{r echo=F}
+dds <- estimateSizeFactors(ddsTxi_filtered)
+```
+- `DESeq` first calculates the library size.  Remember that this is analogous to the total number of per sample
+- the count data is then scaled based on library size
+
+## Estimating Dispersions
+```{r, echo = F}
+dds <- estimateDispersions(dds)
+```
+- This is basically accounting for technical variability between expression of individual genes(its actually lot more complicated than that but beyond the scope of this course)
+- for a more through explanation, see the documentation for the `estimateDispersions`
+function
+
+
+## Transforming Count Data
+- raw RNA-seq counts are good for statistical models, but bad for visualization. These counts are typically transformed to reduce the large range between count values for different genes
+- This is typically done by `log2` tranforming the counts, ie `log2(counts + 1)`. 
+- The 1 is added so counts less than stay above 0
+
+## Transforming Count Data with DESeq2
+- `DESeq` provdes a slightly fancier way to log transform called `rlog`
+```{r}
+rlds <- rlog(dds)
+```
+- note that this returns a separate object than what we used earlier/ will use for differential expression
 
 
 ## Exploring data
-- Once we load data into R, the next step is to explore the data.
+- At this stage, we can begin exploring data.
 - This is generally a QC step, to make sure that the data looks clean.
 
 ## A quick primer on dimensions 
@@ -353,6 +433,7 @@ exp2
 ```
 - Same number of observations, but with 2 measurement, and so this data has two dimension
 - And so in a typical RNA-seq experiment where you are measuring 20K genes, you would have 20K dimensions
+- However, note that RNaA-seq is stored as variables x obersvations ( gene x sample)
 
 ## Exploring data with Principal Component Analysis
 - Principal Component Analysis(PCA) is a method for reducing the dimensions from the data
@@ -360,12 +441,28 @@ exp2
 - We can use this reduced dimensional space to speed up computations, or for visualizations 
 
 ## PCA in DESeq2
-- generating PCA plots is built into DESeq2
+- generating PCA plots is built into DESeq2. Simply pass a transdformed data object to `plotPCA`
 ```{r}
+plotPCA(rlds)
+```
+
+## Caution in interpreting PCA plots 
+- Always pay attention to the amount of variance in each principal component
+```{r}
+library(ggplot2)
+df <- tibble(x=c(-7, 3, -1, 10), 
+       y=c(-1,-2, 2, 1 ), 
+       condition = c('a', 'a', 'b', 'b'))
+ggplot(df) + 
+  geom_point(aes(x=y, y=x, color = condition)) + 
+  xlab('PC1 45% variance explained') + 
+  ylab('PC2 30% variance explained')
 
 ```
 
+```{r}
 
+```
 
 
 
