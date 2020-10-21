@@ -6,6 +6,7 @@ output:
   ioslides_presentation: 
     widescreen: true
 ---
+
 <link rel="stylesheet" href="http://yandex.st/highlightjs/7.3/styles/default.min.css">
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.0/jquery.min.js"></script>
 <script src="http://yandex.st/highlightjs/7.3/highlight.min.js"></script>
@@ -30,7 +31,7 @@ slides > slide {
 library(knitr)
 library(tidyverse)
 #opts_chunk$set(echo = F, fig.height = 5, fig.width = 5)
-opts_knit$set(root.dir = '~/personal/BIOF045-Intro-to-RNA-seq/')
+#opts_knit$set(root.dir = '~/personal/BIOF045-Intro-to-RNA-seq/')
 ```
 
 
@@ -44,15 +45,14 @@ opts_knit$set(root.dir = '~/personal/BIOF045-Intro-to-RNA-seq/')
 ## RNA Biology -  The Central Dogma
 <div class="container">
 <div class="col">
-```{r}
-include_graphics('src/dna_central_dogma_yourgenome.png')
+```{r, echo = F}
+include_graphics('../src/dna_central_dogma_yourgenome.png')
 ```
 
 </div>
 
 <div class="col">
 - In transcription, distinct parts of the genome are transcribed into immature RNA. 
-- `inline exampl`
 </div>
 </div> 
 
@@ -60,8 +60,8 @@ include_graphics('src/dna_central_dogma_yourgenome.png')
 
 <div class="container">
 <div class="col">
-```{r}
-include_graphics('src/rna_isoforms.gif')
+```{r, echo = F}
+include_graphics('../src/rna_isoforms.gif')
 ```
 
 </div>
@@ -79,8 +79,8 @@ include_graphics('src/rna_isoforms.gif')
 ## One gene, multiple isoforms
 <div class="container">
 <div class="col">
-```{r}
-include_graphics('src/alt_splice.jpg')
+```{r, echo = F}
+include_graphics('../src/alt_splice.jpg')
 ```
 </div>
 <div class="col">
@@ -95,8 +95,8 @@ include_graphics('src/alt_splice.jpg')
 
 <div class="container">
 <div class="col">
-```{r}
-include_graphics('src/rnaseq_lib_prep.png')
+```{r, echo = F}
+include_graphics('../src/rnaseq_lib_prep.png')
 ```
 </div>
 <div class="col">
@@ -112,8 +112,8 @@ include_graphics('src/rnaseq_lib_prep.png')
 
 <div class="container">
 <div class="col">
-```{r}
-include_graphics('src/types_of_rna.png')
+```{r, echo = F}
+include_graphics('../src/types_of_rna.png')
 ```
 </div>
 <div class="col">
@@ -132,8 +132,8 @@ include_graphics('src/types_of_rna.png')
 
 <div class="container">
 <div class="col">
-```{r}
-include_graphics('src/spliced_aln.png')
+```{r, echo = F, fig.width=5}
+include_graphics('../src/spliced_aln.png')
 ```
 </div>
 <div class="col">
@@ -255,8 +255,8 @@ install.packages('BiocManager')
 
 ## Metadata
 - For RNA-seq tool, you will need metadata about your samples; At the very least the metadata should include the sample names and experimental conditions.
-```{r, message=F}
-sample_table <- read_csv('src/sample_table.csv') 
+```{r, message=F, echo=F}
+sample_table <- read_csv('../src/sample_table.csv') 
 kable(sample_table)
 ```
 
@@ -288,7 +288,7 @@ tximport(
 - I've found that its much easier to simply download the appropriate transcript annotation file(.GTF) from the same source you obtained your transcript fasta from
 - for example with,  [gencode](https://www.gencodegenes.org/human/)
 - gtfs can be read directly in R to with the `rtracklayer` package
-```{recho = T, eval = F}
+```{r echo = T, eval = F}
 library(dplyr)
 gtf <- rtracklayer::readGFF('path/to/gtf')
 tx2gene <- gtf %>% 
@@ -381,14 +381,14 @@ dim(ddsTxi_filtered)
 ```
 
 ## library size calculations
-```{r echo=F}
+```{r }
 dds <- estimateSizeFactors(ddsTxi_filtered)
 ```
 - `DESeq` first calculates the library size.  Remember that this is analogous to the total number of per sample
 - the count data is then scaled based on library size
 
 ## Estimating Dispersions
-```{r, echo = F}
+```{r}
 dds <- estimateDispersions(dds)
 ```
 - This is basically accounting for technical variability between expression of individual genes(its actually lot more complicated than that but beyond the scope of this course)
@@ -539,17 +539,185 @@ head(diff_exp_filtered)
 - Always let biology inform your decision making when working with RNA-seq. 
 - For example, if you have samples for different experimentally different that are biologically distinct IE morphologically, molecularly, functionally, etc, but the RNA-seq data doesn't exactly match that up, run an analysis again with more relaxed filtering values.
 
-
 ## Downstream of DGE
 - We can use these differential expression results for gene set enrichment or for visualization
 - Gene set enrichment determines how many of your differentially expressed genes are in a list of genes that correspond to a specific biological process or function.
+- Gene set enrichment is a broad term for both pathway analysis and gene ontology analysis
 - These processes are some times referred to as ontologies Ontologies, and exist in biological data bases 
 - In order to do this, we need to map our gene ids to gene names 
 
 
 ## Gene IDs and gene names
 - There is not a 1:1 mapping between ID's and names; multiple IDs refer to the same gene name, and so its generally better to use gene_ids over gene names for tasks like quantification and differential gene expression
-- the best way to get gene names from annotations is by using an annotation file, like 
+- the best way to get gene names from annotations is by using an annotation file, like the gtf we used earlier
+```{r}
+gtf <- rtracklayer::readGFF('../references/transcript_annotation.gtf.gz')
+id2gene <- gtf %>% filter(type == 'gene') %>% 
+  select(gene_id, gene_name) %>% 
+  mutate(gene_id = str_remove_all(gene_id, '\\.\\d+$' ))
+  diff_exp_results <- diff_exp_filtered %>% 
+  mutate(gene_id = str_remove_all(gene_id, '\\.\\d+$' ))
+```
 
+- gene IDs are usually versioned by their release, and so its best practice to remove the version( the .number at the end)
+
+## Gene IDs and gene names
+
+- then search this data frame with the ids we obtained earlier
+
+```{r}
+diff_exp_genes <- id2gene %>% 
+  filter(gene_id %in%  diff_exp_results$gene_id) %>% 
+  pull(gene_name)
+diff_exp_genes
+```
+
+## gene set enrichment
+
+- A quick and easy way to perform gene enrichment is through an online service called [enrichr](https://maayanlab.cloud/Enrichr/)
+
+```{r eval=F}
+library(clipr)
+write_clip(diff_exp_genes)# this write s data to the clip board
+```
+
+## Gene set enrichment within R
+- there are many packages for gene set enrichment, but the `clusterProfiler` is my go to
+```{r}
+library(clusterProfiler)
+enrichment <- enrichGO(gene = diff_exp_genes,
+                       OrgDb = 'org.Hs.eg.db',
+                       keyType = 'SYMBOL',
+                       ont = 'BP', 
+                       qvalueCutoff = .1
+                        )
+head(enrichment)
+```
+
+## Annotation databases
+- the `org.Hs.eg.db` from above is an annotation data base hosted on bioconductor. It contains a variety of annotations used by many bioconductor packages 
+- you can install it with `BiocManager::install('org.Hs.eg.db')`
+- there are others for different species. google orgdb + species name
+
+## Visualizing gene set enrichment
+- `clusterProfiler` has some built in plotting functions that are pretty nice 
+```{r,warning=F , message=FALSE}
+dotplot(enrichment)
+```
+- it doesn't look super great because we don't have many differentially expressed genes
+
+## Pathway analysis with clusterProfiler
+- its possible, but is a little complicated. If we have time, I'll cover it
+
+
+## plotting gene expression and differential expression results 
+- We'll now move into some of the common visualizations you see down stream of differnetial gene expression
+
+
+## volcano plots 
+- while plotting volcano plots is not built into `DESeq2`, the `EnhancedVolcano` package allows you to easily plot a volcano plot with the `results` of a DESeq2 object
+
+```{r}
+library(EnhancedVolcano)
+EnhancedVolcano(diff_exp_results, 
+                lab = rownames(diff_exp_results),
+                FCcutoff = 2, 
+                x = 'log2FoldChange',
+                y = 'pvalue')
+
+```
+
+## Heatmaps 
+- we can use the `pheatmap` package to plot a heatmap of gene expression
+```{r}
+library(pheatmap)
+gene_Expression <-  assay(rlds)
+gene_Expression_diff_exp <- gene_Expression[diff_exp_filtered$gene_id, ]
+pheatmap(gene_Expression_diff_exp)
+```
+
+## A note on the results of differential expression analyses
+- Any published differntial gene expression analysis has been thoroughly tuned to look the way it is
+- By changing several parameters, prefiltering, pvalue cutoff, and foldchange cutoff, you can significanlty change the results of the downstream plots and gene enrichment
+- Don't get discouraged if your results don't look exactly like you want them to. Play around with an analysis a few times to see how it will change.
+
+
+## Beyond Bulk RNA-seq
+- I'll cover some other types of RNA-seq data
+- Unfortunately we won't have time to go through code for these types of RNA-seq 
+- However, the general workflow is the same across all types of RNA-seq
+- Mapping > quantification  > QC > analysis
+- Bulk RNA-seq data refers to RNA generated from bulk tissue/ large quantities of RNA
+
+
+## MicroRNA seq
+
+<div class="container">
+<div class="col">
+```{r, echo = F}
+include_graphics('../src/miRNAseq.png')
+```
+
+</div>
+
+<div class="col">
+- microRNA(miRNA) are small RNAs that regulate mRNA expression, through RNA interference
+- Sequencing works the exact same as bulk RNA-seq, except there is a size selection step for smaller fragments 
+</div>
+</div>
+
+## Well based single cell RNA-seq
+<div class="container">
+<div class="col">
+```{r, echo = F}
+include_graphics('../src/seqwell.png')
+```
+
+</div>
+<div class="col">
+- First generation of single cell RNA-seq (scRNA-seq)
+- individual cells are pipetted into wells(through serial dilution), where each well has reagents for RNA-seq library prep. 
+- cells are the lysed and sequenced. 
+- this typically yields 100-1000 individual cells cells 
+- Functions essentially the same as bulk RNA-seq, in that whole transcripts are amplified
+</div>
+</div>
+
+## Droplet based single cell RNA-seq
+<div class="container">
+<div class="col">
+```{r, echo = F}
+include_graphics('../src/droplet.png')
+```
+
+</div>
+<div class="col">
+- second generation of single cell RNA-seq (scRNA-seq) 
+- individual cells are encapsulated in oil coated beads through a microfluidics system
+- RNA-seq library preparation occurs within these droplets
+- only the 3' end of transcripts are sequenced, so can only get gene level expression for about 2000 total genes
+- cells are the lysed and sequenced. 
+- this typically yields 5000-15000 individual cells 
+</div>
+</div>
+
+## Long Read RNA sequencing 
+
+<div class="container">
+<div class="col">
+```{r, echo = F}
+include_graphics('../src/nanopore.png')
+```
+
+</div>
+<div class="col">
+- sometimes referred to third generation RNA-sequencing 
+- whole RNA transcripts(300bp - 50000bp) can be directly sequenced
+- Transcripts are fed through a helicase enzyme embedded in an electrically charged membrane
+- as the DNA passes through the enzyme, the charge changes across the membrane, which can be used to determine the nucleotide sequence
+- can be done with cDNA or direct RNA
+- useful for identifying gene isoforms and RNA modifications 
+</div>
+</div>
 
 

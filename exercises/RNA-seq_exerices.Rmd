@@ -162,4 +162,27 @@ library(pheatmap)
 
 ```
 
+- make a volcanoplot with `EnhancedVolcano::EnhancedVolcano`
+
+```{r}
+library(EnhancedVolcano)
+```
+
+- select the top 20 genes from the DGE results and make a heatmap with `pheatmap`
+
+```{r}
+library(pheatmap)
+```
+
+- use `clusterProfiler::enrichGO` to calculate gene set enrichment.
+
+```{r}
+library(clusterProfiler)
+```
+
+- - use `clusterProfiler::dotplot` to visualize the results of GSEA
+
+```{r}
+
+```
 
