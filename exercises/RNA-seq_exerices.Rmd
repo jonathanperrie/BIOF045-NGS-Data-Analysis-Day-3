@@ -37,50 +37,129 @@ wget -O references/transcript_annotation.gtf.gz ftp://ftp.ebi.ac.uk/pub/database
 - First, we make the decoy files need for building the index
 ```{bash}
 zcat references/human_genome_grch38.fa.gz | grep "^>"  -| cut -d " " -f 1 | sed  -e 's/>//g'  > references/decoys.txt # get names of chromosomes 
-zcat references/transcripts.fa.gz references/human_genome_grch38.fa.gz > references/transcript_genome_merged.fa # merge two fastas together
+zcat references/transcripts.fa.gz references/human_genome_grch38.fa.gz > references/gentrome.fa # merge two fastas together
 
 ```
 
-- This would be the command to generat the index. DO NOT run it, as it will take about an hour to run 
-- For reference, on a 12 core machine this took about 1.5 hours to run, and required about 20GB of RAM.
-```
-salmon index -t references/transcript_genome_merged.fa -d references/decoys.txt -p 12 -i references/salmon_human_index --gencode
-```
-
-```{r}
-BiocManager::install('airway', ask = F)
-'/data/swamyvs/BIOF045-NGS-Data-Analysis-Day-3/fastqs/'
-```
-
-- Now we can quantify our samples. We'll need to run a separate command for each sample, so using a loop would simplify this process.\
-- I've already run salmon on each sample as even though salmon is fast(~10 min per sample)
-- As an example here is how you would use the command
+- Salmon was having trouble compiling so you can use it through the path /data/day3_RNA-seq/salmon/bin/salmon
 
 ```{bash}
-mkdir -p quant/
-fastq_path='/data/swamyvs/BIOF045-NGS-Data-Analysis-Day-3/fastqs/'
-salmon quant  \
-    --threads 8 \
-    --libType A \
-    -1 ${fastq_path}/SRR1039513_1.fastq \
-    -2 ${fastq_path}SRR1039513_2.fastq \
-    --index references/salmon_human_index \
-    --seqBias \
-    --gcBias \
-    --posBias \
-    --output quant/${sample}/
+salmon=/data/day3_RNA-seq/salmon/bin/salmon
+$salmon --help
+```
+
+- try writing out what the command would be for generating the index. try running but stop it once it gets going as it takes about an hour to build.
+
+```
+```
+- the index for the class is at '/data/day3_RNA-seq/salmon_human_index/'
+
+
+- Now we can quantify our samples.
+- try writing out a command for running salmon in quant mode and running it
+- fastqs are stored in  the folder /data/day3_RNA-seq/fastqs/
+
+```{bash}
 
 ```
 
 
+- lets take a look at the output of this step 
+- I've quantified data for some samples, available at '/data/day3_RNA-seq/fastqs/' ; We'll specifically be looking at the folder for `SRR1039521`
+```{bash}
+cd /data/day3_RNA-seq/quant/SRR1039521
+ls
+```
 
+- quant.sf contians the actualy quantification data
+- aux_info/meta_info.json contains important information about the how the data was map. Lets take a look at it . 
+`cat` the file, or look at with `less`
+```{bash}
+cat aux_info/meta_info.json 
+```
 
+- always take a look at the mapping rate for your samples. You generally want a mapping rate above 70%, ideally 80%
 
+- We'll be using the rest of the data in the `quant` folder for the rest of this exercise
+- This grabs the file paths for you
+```{r}
+quant_files <- list.files(pattern = '/data/day3_RNA-seq/quant', pattern = 'quant.sf', recursive = T, full.names = T )
+```
 
+- read the gtf we downloaded into R with `rtracklayer::readGFF`. Use tidyverse functions to select the transcript_id and gene_id column, and use `distinct` to remove duplicate rows. This will be our `tx2gene` for `tximport`
 
+- use the `quant_files` vector and the `tx2gene` we generated to load our quantification data into R
 
+```{r}
+library(tximport)
+```
 
+- take a look at the `abundance` and `counts` object within the `tximport` object you created. 
+- for reference, `abundance` refers to TPM values, and `counts` refers to the raw number of RNA-seq reads
 
+```{r}
 
+```
+
+- load this into `DESeq2` with `DESeqDataSetFromTximport`
+
+```{r}
+library(DESeq2)
+```
+
+- From here we can move straight into the analysis
+
+- filter out genes whose total count across all samples is less than 16
+```{r}
+
+```
+
+- normalize for library size with `estimateSizeFactors`
+
+```{r}
+
+```
+
+- account for unwanted variation with `estimateDispersions`
+
+```{r}
+
+```
+
+- created an object with transformed counts with `rlog`
+
+```{r}
+
+```
+
+- plot a PCA with plotPCA
+
+```{r}
+
+```
+
+- make a correlation heat map with the `pheatmap` package. Remember that you can extract data from DESeq objects with `assay` and generate a correlation matrix with `cor`
+
+```{r}
+library(pheatmap)
+```
+
+- test for differential expression via an LRT with `nbinomLRT`
+
+```{r}
+
+```
+
+- get the results of the test with `results`
+
+```{r}
+
+```
+
+- select differentially expressed genes. Use a padj cutoff of .05 and a log2fc cutoff of 1
+
+```{r}
+
+```
 
 
