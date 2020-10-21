@@ -34,6 +34,13 @@ wget -O references/transcript_annotation.gtf.gz ftp://ftp.ebi.ac.uk/pub/database
 
 ## Building an index
 - I'm not goint to cover how to download salmon, because the developers have good documentation on how to do so, and we have it pre-installed on this server.
+
+
+```{bash}
+salmon --help
+
+```
+
 - First, we make the decoy files need for building the index
 ```{bash}
 zcat references/human_genome_grch38.fa.gz | grep "^>"  -| cut -d " " -f 1 | sed  -e 's/>//g'  > references/decoys.txt # get names of chromosomes 
@@ -41,12 +48,6 @@ zcat references/transcripts.fa.gz references/human_genome_grch38.fa.gz > referen
 
 ```
 
-- Salmon was having trouble compiling so you can use it through the path /data/day3_RNA-seq/salmon/bin/salmon
-
-```{bash}
-salmon=/data/day3_RNA-seq/salmon/bin/salmon
-$salmon --help
-```
 
 - try writing out what the command would be for generating the index. try running but stop it once it gets going as it takes about an hour to build.
 
