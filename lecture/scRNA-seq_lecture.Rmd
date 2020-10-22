@@ -1,0 +1,422 @@
+---
+title: "Intro to single cell RNA-seq"
+output:
+  ioslides_presentation: 
+    widescreen: true
+---
+
+<link rel="stylesheet" href="http://yandex.st/highlightjs/7.3/styles/default.min.css">
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.0/jquery.min.js"></script>
+<script src="http://yandex.st/highlightjs/7.3/highlight.min.js"></script>
+<script>
+$(document).ready(function() {
+  $('pre code').each(function(i, e) {hljs.highlightBlock(e)});
+});
+</script>
+<style>
+slides > slide {
+  overflow-y: auto !important;
+}
+.container{
+    display: flex;
+}
+.col{
+    flex: 1;
+}
+</style>
+```{r include=F}
+library(knitr)
+```
+
+## Beyond Bulk RNA-seq
+- RNA seq was typically performed on pooled RNA from many individual cells, because a large amount of initial RNA reduced the number of PCR cycles required for amplification
+- Better polymerases and sequencing technologies now allow for the sequencing of individual cells 
+
+## Why study single cells
+- Many biological specimens, tissue, tumors, etc contains heterogeneous population of cells, with different cell types often having distinct function. 
+- Before single cell RNA-seq,  transcriptomic studies of individual cell types required flow sorting out a population of pure cells, only possible for well studied cells with distinct markers
+- Single cell RNA-seq allows for transcriptomic quantification of individual cells with the need for markers
+
+## Initial barriers
+- Early single cell technologies involved diluting cells into wells, and carrying out sequencing reactions within each well. These were costly and not super quantitative, as the low amount of RNA required increased amplification, and created a lot of noise, in the for of PCR duplicates
+
+## Technological improvements - U Mi's 
+```{r}
+include_graphics('../src/umi.png')
+```
+
+- Unique molecular identifiers(UMIs) solve the PCR duplication problem. 
+- a UMI is typically a 7-8bp artificial nucleotide sequence
+- at 8bp this length there are 4^8 or 65536 different sequences that are possible of this length 
+- *After*  reverse transcription and fragmentation,  and *before* amplification, all these UMI's are added to individual cells, with the idea that each fragment is now labeled with a distinct identifier
+- when these fragments are amplified, sequenced and mapped back to the genome, instead of counting reads, many of which may be PCR duplicates, you count the number of UMIs
+
+
+## Technological improvements - Barcodes
+- the next challenge was adding labellers for each cell. This is typically done with molecular barcodes, similar to UMIs
+- To each well where you have a cell, add a distinct nucleotide sequence, so that all reads associated with an individual cell have a distinct barcode associated to that cell. barcodes are typically 10-12 bp, so 4^12 is 16777216 distinct nucleotide sequences. 
+- These individual cells can now be pooled and sequenced as one big assay
+
+## Well based single cell RNA-seq
+<div class="container">
+<div class="col">
+```{r, echo = F}
+include_graphics('../src/seqwell.png')
+```
+
+</div>
+<div class="col">
+- First generation of single cell RNA-seq (scRNA-seq)
+- individual cells are pipetted into wells(through serial dilution), where each well has reagents for RNA-seq library prep, barcodes, umi's etc
+- cells are the lysed and sequenced.
+- this typically yields 100-1000 individual cells cells 
+- Functions essentially the same as bulk RNA-seq, in that whole transcripts are amplified, and distinct isoforms of genes can be quantified.
+</div>
+</div>
+
+## Droplet based single cell RNA-seq
+<div class="container">
+<div class="col">
+```{r, echo = F}
+include_graphics('../src/droplet.png')
+```
+
+</div>
+<div class="col">
+- second generation of single cell RNA-seq (scRNA-seq) 
+- individual cells are encapsulated in oil coated beads through a microfluidics system(loading phase)
+- number of droplet *far* exceeds the number of cells 
+- RNA-seq library preparation occurs within these droplets
+</div>
+</div>
+
+## Droplet based single cell RNA-seq
+<div class="container">
+<div class="col">
+```{r, echo = F}
+include_graphics('../src/droplet.png')
+```
+
+</div>
+<div class="col">
+- only the 3' end of transcripts are sequenced, so can only get gene level expression for about 2000 genes per cell
+- cells are the lysed and sequenced. 
+- this typically yields  4000-8000 individual cells per assay. Studies often often use several assays, so its not uncommon to see studies with 50k-100k cells 
+</div>
+</div>
+
+## Analysis of single cell RNA-seq 
+- Analysis of single cell data is still in the "wild-west" phase of development, where there as many *methods* for single cell analysis published are there are *studies* using single cell RNA-seq 
+- single cell RNA-seq presents some major computational challenges, as analysis of a droplet based sequencing matrix will give a a matrix of about 2000 rows and 50k columns, which would take about 3.5 gigabytes to store in RAM 
+- Designing computational methods to work with this kind of data is difficult.
+
+## Major players for scRNA-seq analysis
+- Seurat - an R package for  scRNA-seq analysis. Actively being developed, but maturing. Well documented, and works very well for analyses under ~200K cells. 
+- Scanpy - a python package fo scRNA-seq, very similar to Seurat, and works well with large amounts of data (1 million+ cells ).
+- We'll be working with Seurat
+
+## typical scRNA-seq analysis - Alignment
+- alignment encompasses alignment of reads to transcriptome, UMI quantification, and barcode identification. 
+- 10x Genomics( the company who cells droplet based scRNA-seq) provides their own tool called cellranger for this.
+- It's takes a VERY long time to run, and so is unusable for studies with 100k+ cells 
+- kallisto + bustools  - an opensource alternative thats MUCH faster.
+- It works very similar to Salmon, which we used yesterday.
+- I'm not going to cover how to use it today, as it takes a lot of time to run, and the authors have fantastic documentations on their [website.](https://bustools.github.io)
+
+
+# Working with SparseMatrices in R
+- I'll be working with the Peripheral Blood Mononuclear Cells (PBMC) dataset, which is generated from a human blood sample
+- single cell data is usually loaded as a SparseMatrix - this type of matrix saves space by not storing any value equal to 0, and so for data with a lot of 0's you end up saving a lot of space
+```{r}
+library(dplyr)
+library(Seurat)
+pbmc.data <- Read10X(data.dir = "~/Downloads/filtered_gene_bc_matrices/hg19/")
+head(pbmc.data)
+```
+- each row here corresponds to a gene, and each column is an individual cell, marked by the barcode for that specific cell
+
+## `Seurat` Objects
+- `Seurat` expects has a custom object it uses to store data. the object stores, raw counts, metadata, transformation, and dimensionality reductions.
+
+```{r}
+pbmc <- CreateSeuratObject(counts = pbmc.data, project = "pbmc3k", min.cells = 3, min.features = 200)
+pbmc
+```
+## `Seurat` Objects
+- Seurat objects store data in slots. You can access slots with the `@` operator
+- this is the metadata for this object, where each row corresponds to a cell
+```{r}
+pbmc@meta.data %>% head()
+```
+
+## `Seurat` Objects
+- to get the names of all slots of an object, use `slotNames`
+```{r}
+slotNames(pbmc)
+```
+
+## Seurat Assays
+- `Seurat` has the functionality of storing multiple count matrices, which can be used for certain types of scRNA-seq methods,
+- each distinct count matrices is stored in the `assay` slot. Assay is a list, with each name corresponding to a specific count matrix
+```{r}
+pbmc@assays
+```
+## Seurat Assays
+- the individual objects within the `Assay` slot are called `Assay` objects (computer scientists are not known for their naming skills )
+```{r}
+class(pbmc@assays$RNA)
+```
+ 
+ - `Assay` objects are their own class, and have their own slots 
+ 
+```{r}
+slotNames(pbmc@assays$RNA)
+```
+
+- one of the criticisms of Seurat is this complicated object structure, which is especially challenging for beginners.
+
+## Quality Control
+- There are two important QC steps right off the bat:
+ - Removing cells with high mitochondrial RNA expression
+ - Removing Doublets 
+
+## High Mitochondrial Gene expression
+- High Mitochondrial Gene expression is a sign of a dead cell
+- as cells die, mitochondria burst and release mtRNA
+- We don't want to measure dead cells, and so its good practice to remove cells that have over 10% of total gene expression attributed to mtRNA
+```{r}
+pbmc[["percent.mt"]] <- PercentageFeatureSet(pbmc, pattern = "^MT-")
+# pattern corresponds to the prefix for mtGenes
+```
+
+## High Mitochondrial Gene expression
+- this adds `percent.mt` as a column to `pbmc@meta.data`
+ 
+```{r}
+pbmc@meta.data %>% head
+```
+
+## High Mitochondrial Gene expression
+
+- we can visualize this via a violin plot
+
+```{r}
+VlnPlot(pbmc, features = "percent.mt")
+```
+
+## Removing High Mitochondrial genes
+- `meta.data` is a data.frame with `rownames`, so to use tidyverse functions we needs to add a column 
+
+```{r}
+pbmc[['barcode']] <- rownames(pbmc@meta.data)
+cells_pass_mt_qc <- pbmc@meta.data %>% filter(percent.mt < 10 ) %>% pull(barcode)
+#remembers that cells are columns here 
+pbmc <- pbmc[, cells_pass_mt_qc]
+```
+
+
+## Doublet
+- Occasionally during the loading phase, two cells will enter the same oil droplet
+- this goes against the idea of "single cells", and so we need to remove them.
+- Unfortunately, its still an on going problem that people are working on
+- Most tools identify doublets after the clustering stage of the analysis, which we'll talk about later.
+
+## Count Transformation
+- Just like bulk RNA-seq we need to normalize the count data.
+- there's still a lot of debate about how to best normalize scRNA-seq data
+- for now we'll stick with the standard log transformation
+```{r}
+pbmc <- NormalizeData(pbmc, normalization.method = "LogNormalize", scale.factor = 10000)
+```
+
+## Identifying variable features
+- In order to speed up calculations, we want to select genes that show the most difference between cells
+- These are genes that are most variable across the population of cells 
+
+```{r}
+pbmc <- FindVariableFeatures(pbmc, 
+                             assay = 'RNA', 
+                             selection.method = "vst", 
+                             nfeatures = 2000)
+```
+
+## Identifying variable features
+-  this is stored in the `var.features` slot of the assay we selected when running `FindVariableFeatures`
+```{r}
+pbmc@assays$RNA@var.features %>% head
+```
+
+```{r}
+VariableFeaturePlot(pbmc)
+```
+
+## Center scaling the data
+
+- for each gene subtract the mean from it and divide by the variance. This sets the mean to 0 and the variance to 1 for all genes. This is required for some downstream analysis like clustering
+
+```{r}
+pbmc <- ScaleData(pbmc)
+```
+
+## Dimensionality Reduction - PCA
+
+- To save on compute time we reduce dimensions with PCA
+
+```{r, message=FALSE}
+pbmc <- RunPCA(pbmc, features = VariableFeatures(object = pbmc))
+
+```
+
+- dimensions are stored in the `reductions` slot
+```{r}
+pbmc@reductions
+```
+
+## Dimensionality Reduction - PCA
+- We can visualize this with `DimPlot`
+```{r}
+DimPlot(pbmc, reduction = 'pca')
+```
+
+## Selecting Principal Components
+- PCA returns multiple principle components(PCs),
+```{r}
+pbmc@reductions$pca@cell.embeddings %>% dim
+```
+- Each represents an axis of variation for a different set of genes. 
+- The choice of which PC's to include for down stream analysis is a very important step
+
+## Selecting Principal Components
+- we can visualize the genes captured by each PC with the DimHeatmap function
+```{r, fig.height=12}
+DimHeatmap(pbmc, dims = 1:15, cells = 500, balanced = TRUE)
+```
+
+## Selecting Principal Components
+- another way is the elbow plot
+
+```{r}
+ElbowPlot(pbmc)
+```
+
+## Clustering 
+- Clustering is one of the core steps of scRNA-seq analysis
+- Using our reduced dimensions, want to find subpopulations within our set of data that correspond to distinct cell types, which we do by clustering
+- In its simplest form, clustering calculates the distance between all data points in a data set, and says  data points that are less than X distance apart are one cluster.
+- Seurat uses the Louvain clustering algorithm for clustering
+- the `resolution` parameter corresponds to the number of distinct clusters to make choose values between  0.4-1.2
+```{r}
+pbmc <- FindNeighbors(pbmc, dims = 1:10)# Remember we are only using the first 10 PC's
+pbmc <- FindClusters(pbmc, resolution = 0.5)
+```
+
+## Nonlinear dimensionality reduction
+- A drawback of PCA is that it only can only linear decompose variance
+```{r}
+include_graphics('../src/pca_nl.png')
+```
+
+## Nonlinear dimensionality reduction
+- Other dimensionality reduction like t-stochastic neighbor embedding(tSNE) or Uniform Manifold Approximation and Projection(UMAP)
+- UMAP has become the standard
+```{r}
+pbmc <- RunUMAP(pbmc, dims = 1:10)# only first 10
+```
+
+## Nonlinear dimensionality reduction
+- this is our umap plot
+```{r}
+DimPlot(pbmc, reduction = "umap", group.by = 'orig.ident')
+```
+
+- Here's PCA for reference
+
+```{r}
+DimPlot(pbmc, reduction = 'pca',  group.by = 'orig.ident')
+```
+
+## Nonlinear dimensionality reduction
+- this become even more apparent when we add our cluster labels
+
+```{r}
+DimPlot(pbmc, reduction = "umap", group.by ='seurat_clusters' )
+```
+
+- pca
+
+```{r}
+DimPlot(pbmc, reduction = "pca", group.by ='seurat_clusters')
+```
+
+## identifying cluster markers
+- the next key step is identifying markers for each cluster. these are the genes that are representative of only 1 cluster. 
+- These genes can then be matched back to the literature for known cell types, or for annotating a new one  
+- `min.pct` mean the minimum fraction of cells within a cluster a gene must be expressed in, and `logfc.threshold` defines 
+
+```{r}
+
+pbmc.markers <- FindAllMarkers(pbmc, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
+head(pbmc.markers)
+```
+
+## identifying cluster markers
+
+- We can explore these with some plots 
+
+```{r}
+VlnPlot(pbmc, features = c("MS4A1", "CD79A"), group.by ='seurat_clusters' )
+```
+
+## identifying cluster markers
+- ridgeplot
+
+```{r}
+RidgePlot(pbmc, features = c("NKG7", "PF4"),group.by ='seurat_clusters' )
+```
+
+## identifying cluster markers
+
+```{r}
+FeaturePlot(pbmc, features = c("MS4A1", "GNLY", "CD3E", "CD14", "FCER1A", "FCGR3A", "LYZ", "PPBP", 
+    "CD8A"))
+```
+
+## cluster heatmap
+
+- the very standard cluster heatmap
+
+```{r message=F, warning=F}
+top10 <- pbmc.markers %>% group_by(cluster) %>% 
+  top_n(n = 10, wt = avg_logFC) # select top 10 markers for each gene
+DoHeatmap(pbmc, features = top10$gene) + NoLegend()
+```
+
+## Automatic annotation
+- the package `singleR` can compare your list of cluster markers to published data sets like tabula muris or the human cell atlas
+
+## Beyond single cell RNA-seq
+- Newer iterations of scRNA-seq allow you to capture more information 
+
+## Single Nucleus sequencing
+- Very similar to standard scRNA seq, but useful for tissues that are difficult to dissociate into single cells 
+```{r, echo=F}
+include_graphics('../src/snRNAseq.jpg')
+```
+
+
+## RNA + Protein
+- Quantify gene expression and identify proteins 
+- published protocols REAP-seq and CITE-seq
+```{r, echo=F}
+include_graphics('../src/CITEseq.png')
+```
+
+# Spatial Transcriptomics 
+- RNA-barcoded probes are fixed to slide
+- tissue is then mounted on slide and permeablized,and RNA attached to probe
+```{r, echo=F}
+include_graphics('../src/slidesseq.png')
+```
+
+
+

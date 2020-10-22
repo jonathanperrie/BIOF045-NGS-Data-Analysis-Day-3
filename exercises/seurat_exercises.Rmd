@@ -1,0 +1,120 @@
+---
+title: "Seurat Exercises"
+output: html_notebook
+---
+
+
+```{r}
+library(Seurat)
+library(tidyverse)
+library(SeuratData)
+
+```
+
+- We're going to be working with some data from human Pancreatic Islets. 
+- Disclaimer, I have not run through this pipeline with this dataset before, so lets see how it goes
+```{r}
+data('panc8')
+panc8
+```
+
+- to make the data more managable, we're going to subet it to about 25% of its original size
+```{r}
+cells <- colnames(panc8)
+cells_ss <- sample(cells,3723)
+panc8 <- panc8[,cells_ss]
+```
+
+- I recommend having the slides up as reference for the code 
+
+## exercises
+
+- calculate percent mtRNA for this data 
+
+```{r}
+
+```
+
+- visualize it with an VlnPlot
+
+```{r}
+
+```
+
+- keep cells that have less than 10% mt Expression
+
+```{r}
+
+```
+
+- normalize the data 
+
+```{r}
+
+```
+
+- find the 3000 most variable genes in the data 
+
+```{r}
+
+```
+
+- plot variable features
+
+```{r}
+
+```
+
+-  center and scale the data 
+
+```{r}
+
+```
+
+- reduce dimensions with PCA
+
+```{r}
+
+```
+
+- plot the PCA reduction
+
+```{r}
+
+```
+- use ElbowPlot to idenity how many PC's to keep
+
+```{r}
+
+```
+
+- cluster the data 
+
+```{r}
+
+```
+
+- create a  UMAP reduction
+
+```{r}
+
+```
+
+- plot UMAP reduction, coloring by clusters
+
+```{r}
+
+```
+
+- calculate markers for each cluster
+
+```{r}
+
+```
+
+- using VlnPlot, Ridgeplot, and FeaturePlot, explore the set of markers you generated
+
+```{r}
+
+```
+
