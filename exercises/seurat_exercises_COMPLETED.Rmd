@@ -12,9 +12,16 @@ library(SeuratData)
 
 - We're going to be working with some data from human Pancreatic Islets. 
 - Disclaimer, I have not run through this pipeline with this dataset before, so lets see how it goes
+
 ```{r}
 data('panc8')
-panc8
+
+class(panc8@assays)
+slotNames(panc8)
+
+class(panc8@assays$RNA)
+
+dim(panc8)
 ```
 
 - to make the data more managable, we're going to subet it to about 25% of its original size
@@ -31,73 +38,113 @@ panc8 <- panc8[,cells_ss]
 - calculate percent mtRNA for this data 
 
 ```{r}
+panc8[["percent.mt"]] <- PercentageFeatureSet(panc8, pattern = "^MT-")
+panc8[['ID']] <- 'ID'
+panc8@meta.data
 ```
 
 - visualize it with an VlnPlot
 
 ```{r}
+VlnPlot(panc8, features = 'percent.mt', group.by = 'ID')
 ```
 
 - keep cells that have less than 10% mt Expression
 
 ```{r}
+panc8[['cell_id']] <- rownames(panc8@meta.data)
+cells_that_pass_qc <- filter(panc8@meta.data, percent.mt < 10 ) %>% pull(cell_id)
+panc8 <-  panc8[,cells_that_pass_qc]
 ```
 
 - normalize the data 
 
 ```{r}
+panc8  <- NormalizeData(panc8, normalization.method = "LogNormalize", scale.factor = 10000)
+
+```
+
+```{r}
+panc8@assays
 ```
 
 - find the 3000 most variable genes in the data 
 
 ```{r}
+panc8 <- FindVariableFeatures(panc8, 
+                             assay = 'RNA', 
+                             selection.method = "vst", 
+                             nfeatures = 3000)
+
+panc8@assays$RNA@var.features
 ```
 
 - plot variable features
 
 ```{r}
+VariableFeaturePlot(panc8)
+
 ```
 
 -  center and scale the data 
 
 ```{r}
+panc8 <- ScaleData(panc8)
+panc8@assays$RNA@scale.data
 ```
 
 - reduce dimensions with PCA
 
 ```{r}
+set.seed(101)
+panc8 <- RunPCA(panc8, features = VariableFeatures(object = panc8))
 ```
 
 - plot the PCA reduction
 
 ```{r}
+DimPlot(panc8, reduction = 'pca', group.by = 'ID')
 ```
 - use ElbowPlot to idenity how many PC's to keep
 
 ```{r}
+
+ElbowPlot(panc8,ndims = 50)
+
+
 ```
+- Looks like 12 is the number of PCs to keep
 
 - cluster the data 
 
 ```{r}
+panc8 <- FindNeighbors(panc8, dims = 1:12)
+panc8 <- FindClusters(panc8, resolution = 0.4)
 ```
 
 - create a  UMAP reduction
 
 ```{r}
+panc8 <- RunUMAP(panc8, dims = 1:12)
 ```
 
 - plot UMAP reduction, coloring by clusters
 
 ```{r}
+DimPlot(panc8, reduction = "umap", group.by = 'seurat_clusters')
 ```
 
 - calculate markers for each cluster
 
 ```{r}
+
+panc8.markers <- FindAllMarkers(panc8, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
+
 ```
 
 - using VlnPlot, Ridgeplot, and FeaturePlot, explore the set of markers you generated
 
 ```{r}
+
 ```
+
