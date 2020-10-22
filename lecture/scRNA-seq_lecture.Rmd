@@ -28,6 +28,14 @@ slides > slide {
 library(knitr)
 ```
 
+## RNA-seq Review 
+- RNA-seq is the high-throughput sequencing of mRNA transcripts
+- mRNA is converted to cDNA, amplified through PCR, and sequenced
+- Amplified fragments are reads; the total number of reads in a sample is its library size
+- Transcripts can be quantified(not aligned) against a transcriptome reference
+- Significant change in gene expression between experimental conditions is known as differntial gene expression
+
+
 ## Beyond Bulk RNA-seq
 - RNA seq was typically performed on pooled RNA from many individual cells, because a large amount of initial RNA reduced the number of PCR cycles required for amplification
 - Better polymerases and sequencing technologies now allow for the sequencing of individual cells 
